@@ -7,6 +7,7 @@ import {
   BRIDGE_HTTP_URL,
 } from '../config'
 import * as kokoro from './kokoro'
+import { textLang, type Lang } from './lang'
 import { caps } from './capabilities'
 
 /**
@@ -220,6 +221,45 @@ export function candidateVoices(): SpeechSynthesisVoice[] {
 }
 
 let cachedVoice: SpeechSynthesisVoice | null | undefined
+/** French and Arabic voices, chosen once per language and kept. */
+const otherVoices: Partial<Record<Lang, SpeechSynthesisVoice | null>> = {}
+
+/**
+ * Best installed voice for French or Arabic. These have no character to
+ * match, so the ranking is only about quality: the higher-quality variants
+ * first, then the regional variant closest to Tunisia (French from France,
+ * Arabic from the Maghreb or the Gulf, whichever exists).
+ */
+function pickOtherVoice(lang: 'fr' | 'ar'): SpeechSynthesisVoice | null {
+  if (otherVoices[lang] !== undefined) return otherVoices[lang] ?? null
+  const all = speechSynthesis.getVoices()
+  if (!all.length) return null
+  const rank = (v: SpeechSynthesisVoice) => {
+    const n = v.name.toLowerCase()
+    let s = 0
+    if (n.includes('premium')) s += 30
+    else if (n.includes('enhanced') || n.includes('natural')) s += 25
+    if (n.includes('google')) s += 15
+    if (lang === 'fr' && /fr[-_]fr/i.test(v.lang)) s += 10
+    if (lang === 'ar' && /ar[-_](tn|dz|ma)/i.test(v.lang)) s += 12
+    if (lang === 'ar' && /ar[-_]sa/i.test(v.lang)) s += 6
+    return s
+  }
+  const hit =
+    all
+      .filter((v) => v.lang.toLowerCase().startsWith(lang))
+      .sort((a, b) => rank(b) - rank(a))[0] ?? null
+  otherVoices[lang] = hit
+  return hit
+}
+
+/** The voice for one piece of text, by the language it is written in. */
+function voiceFor(text: string): { voice: SpeechSynthesisVoice | null; lang: string } {
+  const l = textLang(text)
+  if (l === 'en') return { voice: pickVoice(), lang: 'en-GB' }
+  const voice = pickOtherVoice(l)
+  return { voice, lang: voice?.lang ?? (l === 'fr' ? 'fr-FR' : 'ar-SA') }
+}
 
 function pickVoice(): SpeechSynthesisVoice | null {
   if (cachedVoice !== undefined) return cachedVoice
@@ -268,6 +308,8 @@ export function cycleVoice(): string {
 if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.addEventListener('voiceschanged', () => {
     cachedVoice = undefined
+    delete otherVoices.fr
+    delete otherVoices.ar
     pickVoice()
   })
   pickVoice()
@@ -387,7 +429,8 @@ export function createSpeaker(): Speaker {
       diag.engine = 'elevenlabs'
       return fetchCloudAudio(text).catch(() => null)
     }
-    if (TTS_ENGINE === 'kokoro' && !kokoro.isUnavailable()) {
+    // Kokoro's voices are English only; French and Arabic go to the system voice.
+    if (TTS_ENGINE === 'kokoro' && !kokoro.isUnavailable() && textLang(text) === 'en') {
       diag.engine = 'kokoro'
       return kokoro.speak(text).catch(() => null)
     }
@@ -475,9 +518,9 @@ export function createSpeaker(): Speaker {
       speechSynthesis.resume()
 
       const u = new SpeechSynthesisUtterance(text)
-      const voice = pickVoice()
+      const { voice, lang } = voiceFor(text)
       if (voice) u.voice = voice
-      u.lang = voice?.lang ?? 'en-GB'
+      u.lang = lang
       // Deliberate, and deliberately invariant — the character's pace does not
       // change with stakes, and that steadiness is most of the effect. This
       // lands around 130 wpm, below the median for film dialogue.

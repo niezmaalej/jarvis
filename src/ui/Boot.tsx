@@ -3,14 +3,14 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useStore } from '../store'
 
 /**
- * The start-up sequence, rebuilt to the Iron Man boot it is quoting.
+ * The start-up sequence, in AI-Compta colours, on the Iron Man boot it quotes.
  *
  * Four beats, in order, cyan on black:
  *   1. an angular status bar — "INITIATING SYSTEM" — over a scrolling boot log,
  *      with a segmented bar filling left to right;
  *   2. concentric reticle rings assembling inward until "J.A.R.V.I.S" resolves
  *      at the centre;
- *   3. the suit schematic — a wireframe figure with component call-outs;
+ *   3. an invoice schematic — a document being read, with tax call-outs;
  *   4. the triangular arc reactor lighting from a dim outline to full glow,
  *      which is the hand-off into the live scene behind it.
  *
@@ -24,12 +24,12 @@ import { useStore } from '../store'
 const T = { rings: 2600, suit: 5200, reactor: 7200 }
 
 const LOG = [
-  'MOUNT F:/BACKUP/GHOST (HIDDEN)',
-  'EXTEND SYSTEM MEMORY .......... OK',
-  'TELEMETRY / COMP CLIMATION',
-  'REMOVE SYSTEM CONFIGURATION',
-  'CHECKSUM ...................... OK',
-  'RUN SYSTEM TOOL',
+  'PLAN COMPTABLE TUNISIEN ........ OK',
+  'TVA / RETENUE À LA SOURCE ...... OK',
+  'TEIF / EL FATOORA .............. OK',
+  'OCR FACTURES ................... OK',
+  'FR / AR / EN ................... OK',
+  'AI-COMPTA ...................... EN LIGNE',
 ]
 
 type Stage = 'bar' | 'rings' | 'suit' | 'reactor'
@@ -148,6 +148,16 @@ function Rings({ reduced }: { reduced: boolean }) {
       >
         J.A.R.V.I.S
       </motion.text>
+      <motion.text
+        x="0"
+        y="30"
+        className="boot-tag"
+        initial={reduced ? { opacity: 1 } : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.9, ease }}
+      >
+        AI-COMPTA
+      </motion.text>
     </svg>
   )
 }
@@ -155,9 +165,9 @@ function Rings({ reduced }: { reduced: boolean }) {
 /* ------------------------------------------------------------------ beat 3 */
 
 /**
- * The suit schematic — a wireframe figure flanked by component call-outs, the
- * way the film flashes the armour blueprint mid-boot. Not the actual Mark VII
- * geometry, but the same read: a lit humanoid outline and exploded diagrams.
+ * The invoice schematic — where the film flashes the armour blueprint, this
+ * flashes the thing JARVIS spends his days reading: a document with its lines
+ * and totals drawing in, flanked by tax call-outs. Same read, AI-Compta's job.
  */
 function Suit({ reduced }: { reduced: boolean }) {
   return (
@@ -168,20 +178,22 @@ function Suit({ reduced }: { reduced: boolean }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
+        {/* An invoice: the sheet, then its lines filling in as it is read. */}
         <motion.path
           className="boot-wire"
-          d="M0,-118 C11,-118 17,-108 17,-96 C17,-86 12,-80 12,-74
-             L22,-64 L30,-30 L26,26 L34,64 L28,66 L18,30 L16,64 L20,110
-             L6,112 L2,66 L-2,66 L-6,112 L-20,110 L-16,64 L-18,30 L-28,66
-             L-34,64 L-26,26 L-30,-30 L-22,-64 L-12,-74 C-12,-80 -17,-86 -17,-96
-             C-17,-108 -11,-118 0,-118 Z"
+          d="M-62,-118 L40,-118 L62,-96 L62,118 L-62,118 Z M40,-118 L40,-96 L62,-96"
           initial={reduced ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
           transition={{ duration: 1.4, ease: 'easeInOut' }}
         />
-        <path className="boot-wire boot-wire-dim" d="M-9,-104 L9,-104 M-8,-96 L8,-96 M0,-92 L0,-84" />
-        <circle className="boot-wire" cx="0" cy="-40" r="9" />
-        <path className="boot-wire boot-wire-dim" d="M0,-49 L0,-31 M-9,-40 L9,-40" />
+        <path className="boot-wire" d="M-46,-96 L6,-96 M-46,-84 L-10,-84" />
+        <path
+          className="boot-wire boot-wire-dim"
+          d="M-46,-56 L46,-56 M-46,-40 L46,-40 M-46,-24 L46,-24 M-46,-8 L46,-8 M-46,8 L46,8 M10,-62 L10,14"
+        />
+        <path className="boot-wire" d="M4,40 L46,40 M4,56 L46,56 M4,76 L46,76" />
+        <circle className="boot-wire" cx="-30" cy="84" r="14" />
+        <path className="boot-wire boot-wire-dim" d="M-38,84 L-32,90 L-22,78" />
       </motion.g>
 
       {[-150, 150].map((x, i) => (
@@ -201,8 +213,8 @@ function Suit({ reduced }: { reduced: boolean }) {
           />
         </motion.g>
       ))}
-      <text x="-150" y="34" className="boot-tag">RT / PWR</text>
-      <text x="150" y="34" className="boot-tag">DEP / MK</text>
+      <text x="-150" y="34" className="boot-tag">TVA / TTC</text>
+      <text x="150" y="34" className="boot-tag">TEIF</text>
     </svg>
   )
 }

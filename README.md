@@ -1,4 +1,23 @@
-# J.A.R.V.I.S.
+# J.A.R.V.I.S. · AI-Compta edition
+
+This fork turns JARVIS into the voice assistant of **AI-Compta**
+(<https://ai-compta.tn>), the Tunisian accounting software:
+
+- **Tunisian accounting expert.** VAT, withholding tax, timbre fiscal, CNSS,
+  TEIF / El Fatoora, the Tunisian chart of accounts, amounts in dinars and
+  millimes. He checks rates and deadlines against official sources before
+  quoting them, and labels journal entries as proposals for the accountant.
+- **French, Arabic and English.** He answers in the language you speak, and
+  understands Tunisian derja. Press **L** to switch the listening language; with
+  an ElevenLabs key he follows the speaker automatically.
+- **Reads invoices and receipts** shown to the camera or given as files, checks
+  the totals and puts them on screen as a table.
+- **AI-Compta colours** and an accounting boot sequence.
+
+The original project's documentation follows.
+
+---
+
 
 A browser voice assistant with an Iron Man holographic interface. Say
 **"Hey Jarvis"**, he wakes, listens, and does real things through your tools —
@@ -202,6 +221,7 @@ chose.
 | **"Hey Jarvis"** | Wake him |
 | **Space** | Talk without the wake word |
 | Just speak | Interrupt him mid-sentence (barge-in) |
+| **L** | Switch language: French, Arabic, English |
 | **V** | Cycle the browser voice |
 | **Escape** | Stand down |
 | **D** | Live diagnostics panel |

@@ -17,36 +17,28 @@
  *     so it goes at the end, and only sometimes.
  */
 
+import { getLang, type Lang } from './lang'
+
 /** Said as soon as the first tool fires, before any answer exists. */
-const WORKING = [
-  'Working on it, sir.',
-  'Compiling.',
-  'Retrieving.',
-  'Accessing the archive.',
-  'Cross-referencing.',
-  'Running the query now.',
-  'Searching.',
-  'Under way.',
-]
+const WORKING: Record<Lang, string[]> = {
+  en: ['Working on it.', 'Checking.', 'Retrieving.', 'Cross-referencing.', 'Searching.', 'Under way.'],
+  fr: ['Je vérifie.', 'Un instant.', 'Je regarde.', 'Recherche en cours.', 'Je consulte les textes.'],
+  ar: ['لحظة من فضلك.', 'جاري البحث.', 'أتحقق من ذلك.', 'جاري المراجعة.'],
+}
 
 /** Acknowledging an order where no tool is involved. */
-const ACKNOWLEDGE = [
-  'As you wish, sir.',
-  'Very good, sir.',
-  'Certainly.',
-  'Understood.',
-  'Consider it done.',
-  'Directly, sir.',
-]
+const ACKNOWLEDGE: Record<Lang, string[]> = {
+  en: ['Very good.', 'Certainly.', 'Understood.', 'Consider it done.'],
+  fr: ['Très bien.', 'Entendu.', 'C’est noté.', 'Bien compris.'],
+  ar: ['حاضر.', 'مفهوم.', 'تم.', 'بكل سرور.'],
+}
 
 /** Answering to his name, before the user has said what they want. */
-const ATTENTION = [
-  'Yes, sir?',
-  'Sir?',
-  'At your service, sir.',
-  'Standing by.',
-  'Awake, sir.',
-]
+const ATTENTION: Record<Lang, string[]> = {
+  en: ['Yes?', 'At your service.', 'Standing by.', 'I’m listening.'],
+  fr: ['Oui ?', 'Je vous écoute.', 'À votre service.', 'Oui, je vous écoute.'],
+  ar: ['نعم؟', 'تفضل.', 'أنا أسمعك.', 'في خدمتك.'],
+}
 
 /**
  * Avoids repeating the same phrase twice running, which is what makes canned
@@ -63,9 +55,19 @@ function makePicker(pool: string[]) {
   }
 }
 
-export const working = makePicker(WORKING)
-export const acknowledge = makePicker(ACKNOWLEDGE)
-export const attention = makePicker(ATTENTION)
+/** One picker per language, so each keeps its own no-repeat history. */
+function perLang(pools: Record<Lang, string[]>) {
+  const pickers = {
+    en: makePicker(pools.en),
+    fr: makePicker(pools.fr),
+    ar: makePicker(pools.ar),
+  }
+  return () => pickers[getLang()]()
+}
+
+export const working = perLang(WORKING)
+export const acknowledge = perLang(ACKNOWLEDGE)
+export const attention = perLang(ATTENTION)
 
 /**
  * Naming the task is warmer than a generic acknowledgement and shows the
@@ -129,7 +131,7 @@ const BY_TOOL: Rule[] = [
   {
     server: /elevenlabs|openai-tts/,
     tool: /speech|\bvoice\b|\btts\b|text_to_sound/,
-    lines: ['Synthesising.', 'Working on it, sir.'],
+    lines: ['Synthesising.', 'Working on it.'],
   },
   {
     server: /spotify|sonos/,
@@ -139,7 +141,7 @@ const BY_TOOL: Rule[] = [
   {
     server: /^home|homeassistant|\bhue\b|\bhass\b/,
     tool: /\blights?\b|thermostat|\bdimmer\b/,
-    lines: ['Adjusting it now.', 'Seeing to it, sir.'],
+    lines: ['Adjusting it now.', 'Seeing to it.'],
   },
   {
     server: /github|linear|jira|sentry/,
@@ -188,6 +190,9 @@ function split(toolName: string): { server: string; tool: string } {
 
 /** A phrase suited to the tool that just fired. */
 export function forTool(toolName: string): string {
+  // The tool-specific lines below are English; in French or Arabic the
+  // general acknowledgement is better than a line in the wrong language.
+  if (getLang() !== 'en') return working()
   const { server, tool } = split(toolName)
   for (const r of pickers) {
     const hit =

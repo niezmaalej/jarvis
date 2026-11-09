@@ -3,6 +3,7 @@ import { getMic } from './audio'
 import { speakingNow, speakingSince } from './tts'
 import { startVad, type Vad } from './vad'
 import { caps } from './capabilities'
+import { RECOGNITION_TAG, fromCode, getLang, onLangChange, setLang } from './lang'
 
 /**
  * The voice loop.
@@ -76,9 +77,13 @@ const WAKE_DEBOUNCE = 1500
  * Jervis, Jarvys or Java's for a perfectly clear utterance — every one of which
  * used to be silently discarded, so the wake word "just didn't work" with no
  * indication why. Better a rare false wake than a name that does not answer.
+ *
+ * The French and Arabic forms are there because the recogniser listens in the
+ * session language: in Arabic it writes his name in Arabic script, and \b does
+ * not work on non-Latin letters, so that half of the pattern goes without it.
  */
 const WAKE =
-  /\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv)\b(?!'s)/i
+  /\b(?:hey|hi|ok|okay|yo|salut|dis|bonjour|allo|allô)?\s*(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv|djarvis)\b(?!'s)|(?:(?:يا|هاي|اهلا|أهلا)\s*)?(?:جارفيس|جارفس|جرفيس|جارڤيس|جارفيز)/i
 
 /** Everything after the wake phrase, which is usually the actual command. */
 function afterWake(text: string): string {
@@ -257,7 +262,9 @@ function makeAssembler(h: {
 const norm = (s: string) =>
   s
     .toLowerCase()
-    .replace(/[^a-z0-9' ]+/g, ' ')
+    // Any letter in any script. This used to keep a-z only, which reduced every
+    // Arabic sentence to nothing — and an empty sentence counts as an echo.
+    .replace(/[^\p{L}\p{N}' ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -266,8 +273,13 @@ const norm = (s: string) =>
  * he happens to be saying. Suppressing "stop" because he just said "stop"
  * would be the single most infuriating failure this file could have.
  */
-const OVERRIDE =
-  /\b(stop|wait|jarvis|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no)\b/i
+const OVERRIDE_LATIN =
+  /\b(stop|wait|jarvis|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no|arrête|arrete|attends|annule|non|tais-toi|ça suffit|ca suffit)\b/i
+/** Arabic and Tunisian derja: stop, enough (barka, yezzi), be quiet, wait. */
+const OVERRIDE_ARABIC = /(ستوب|بركا|يزي|اسكت|وقف|استنى|جارفيس)/
+const OVERRIDE = {
+  test: (s: string) => OVERRIDE_LATIN.test(s) || OVERRIDE_ARABIC.test(s),
+}
 
 /**
  * Words too common to be evidence of anything.
@@ -284,7 +296,13 @@ const STOP = new Set(
     'our their what which who how why when where do does did can could would ' +
     'should will shall not no yes if then than as about into over under out up ' +
     'down one two three first second third now here there just very really got ' +
-    'get have has had say said tell me okay ok well right').split(' '),
+    'get have has had say said tell me okay ok well right ' +
+    // French
+    'le la les de des du un une et ou mais est sont je tu il elle nous vous ' +
+    'ils elles me te se mon ton son ma ta sa mes que qui quoi comment pourquoi ' +
+    'quand où pas oui non ce cette ça en au aux pour avec dans sur par très ' +
+    // Arabic
+    'في من على الى إلى و ما هل لا نعم هذا هذه انا أنا انت أنت هو هي').split(' '),
 )
 
 /**
@@ -462,7 +480,10 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
         drop(`transcription failed (${res.status})`)
         return
       }
-      const { text } = (await res.json()) as { text?: string }
+      const { text, language } = (await res.json()) as {
+        text?: string
+        language?: string | null
+      }
       const said = (text ?? '').trim()
       diag.lastError = ''
 
@@ -477,6 +498,10 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
         drop('echo of his own voice')
         return
       }
+
+      // Scribe names the language it heard; follow the speaker.
+      const heardLang = fromCode(language)
+      if (heardLang) setLang(heardLang)
 
       diag.heard = said
       diag.heardAt = Date.now()
@@ -760,7 +785,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    rec.lang = 'en-GB'
+    rec.lang = RECOGNITION_TAG[getLang()]
     rec.onstart = () => {
       running = true
       diag.running = true
@@ -813,9 +838,20 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     spin()
   }, 5000)
 
+  // The recogniser's language is fixed for the life of a session, so a
+  // language change ends this one; onend builds the next in the new language.
+  const offLang = onLangChange(() => {
+    try {
+      rec?.abort()
+    } catch {
+      /* already gone */
+    }
+  })
+
   return {
     stop: () => {
       stopped = true
+      offLang()
       clearInterval(health)
       clearSilence()
       assemble.cancel()

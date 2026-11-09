@@ -7,6 +7,10 @@ import { Effects } from './Effects'
 import { Pointer } from './Pointer'
 import { GestureGuide } from './GestureGuide'
 
+/** Arabic needs its letters joined and set right to left: no letter-spacing,
+ *  no uppercase, and a font that has the glyphs. */
+const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text)
+
 const statusText: Record<Phase, string> = {
   offline: 'OFFLINE',
   boot: 'INITIALISING',
@@ -277,7 +281,7 @@ export function Hud() {
                 {/* Only his half decodes. What the user said was never
                     transmitted from anywhere — dressing it up as machine
                     output would be a lie about where the words came from. */}
-                <span className="log-text">
+                <span className={`log-text${isArabic(t.text) ? ' rtl' : ''}`} dir="auto">
                   {t.role === 'jarvis' ? <DecodeText text={t.text} /> : t.text}
                 </span>
               </motion.div>
@@ -289,7 +293,8 @@ export function Hud() {
       <AnimatePresence>
         {caption && (
           <motion.div
-            className="caption"
+            className={`caption${isArabic(caption) ? ' rtl' : ''}`}
+            dir="auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
